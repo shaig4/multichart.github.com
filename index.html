@@ -1,0 +1,339 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>Charx - MultiLanguage Charts</title>
+
+    <script src="charx.js" type="text/javascript"></script>
+
+    <script src="companies.js" type="text/javascript"></script>
+    <script src="companies_he.js" type="text/javascript"></script>
+    <script src="companies_ar.js" type="text/javascript"></script>
+    <script src="companies_ja.js" type="text/javascript"></script>
+
+    <script language="javascript">
+        function Init() {
+            CharxCreate('cpanel', 'charx', 1000, 450, 'charx.swf', '3aa66b63663f83cbc379259a3791bdc65ff34c54,3fb31558e602c709a724af93903ebd22e573538d');
+            RandomizeData();
+        }
+        function uiDateJsToUi(date) {
+            if (!date)
+                return '';
+            return uiPadZero(date.getDate()) + '/' + uiPadZero(date.getMonth() + 1) + '/' + date.getFullYear();
+        }
+        function uiPadZero(iValue) {
+            iValue = parseInt(iValue, 10);
+            if (iValue <= 9)
+                return '0' + iValue;
+            else
+                return iValue;
+        }
+
+        function RandomizeData(levels, large) {
+
+            var r = Math.random();
+            var lang = document.getElementById('selectLang').value;
+            var cl = companies;
+            if (lang == 'ar')
+                cl = companies_ar;
+            else if (lang == 'ja')
+                cl = companies_ja;
+            else if (lang == 'he')
+                cl = companies_he; 
+            if (!levels)
+                levels = parseInt(r * 2 + 1);
+            r = Math.random();
+            var len = parseInt(r * 5 + 2);
+            r = Math.random();
+            var len2 = parseInt(r * 5 + 2);
+            var types;
+            if (levels == 2)
+                types = ['bar', 'line', 'stack'];
+            else
+                types = ['bar', 'pie', 'meter'];
+
+            var type = types[parseInt(r * (types.length))];
+            if (large)
+                len += 50;
+            var xml = '<chart type="' + type + '">\n';
+            var ynames = [];
+            for (var i2 = 0; (i2 < len2 || i2 < len) && i2 < cl.length; i2++) {
+                r = Math.random();
+                ynames.push(cl[parseInt(r * cl.length)]);
+            }
+            for (var i = 0; i < len; i++) {
+                var xname = uiDateJsToUi(new Date(2012, i, 1));
+                var xvalue = i;
+
+                if (levels == 1) {
+                    r = Math.random();
+                    xname = ynames[i];
+                    xvalue = parseInt(r * 100);
+                    xml += '    <x value="' + xvalue + '" label="' + xname + '"/>\n';
+                }
+                else {
+                    xml += '    <x label="' + xname + '">\n';
+
+                    for (var i2 = 0; i2 < len2; i2++) {
+                        r = Math.random();
+                        xml += '        <y value="' + parseInt(r * 100) + '" label="' + ynames[i2] + '"/>\n';
+                    }
+                    xml += '    </x>\n';
+                }
+            }
+            xml += '</chart>';
+            document.getElementById('div').value = xml;
+            SetOptions();
+        }
+        function FromText() {
+            CharxSetData('charx', document.getElementById('div').value);
+        }
+        var loaded = false;
+        function CharxLoaded(x) {
+          loaded = true;
+        }
+        function uiLoadXml(xml_string) {
+            var oXml = null;
+            if (window.ActiveXObject) {
+                var oXml = new ActiveXObject('microsoft.xmldom');
+                oXml.loadXML(xml_string);
+            }
+            else {
+                var oParser = new DOMParser()
+                oXml = oParser.parseFromString(xml_string, 'text/xml');
+            }
+            return oXml;
+        }
+        function uiSetAttribute(xData, xpath, value) {
+            if (!xData)
+                return false;
+            var arr = xpath.split('/@');
+            var att = xpath;
+            if (arr.length == 2) {
+                var xElem = xData.selectSingleNode(arr[0]);
+                if (!xElem)
+                    return false;
+                att = arr[1];
+            }
+            else {
+                xElem = xData;
+            }
+            if (value != null && value != '')
+                xElem.setAttribute(att, value);
+            else
+                xElem.removeAttribute(att);
+            return true;
+        }
+
+        function uiFireFoxInit() {
+            if (!(document.implementation && document.implementation.hasFeature("XPath", "3.0")))
+                return;
+            // prototying the XMLDocument
+            XMLDocument.prototype.selectNodes = function(cXPathString, xNode) {
+                if (!xNode) { xNode = this; }
+                var oNSResolver = this.createNSResolver(this.documentElement)
+                var aItems = this.evaluate(cXPathString, xNode, oNSResolver,
+                   XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null)
+                var aResult = [];
+                for (var i = 0; i < aItems.snapshotLength; i++) {
+                    aResult[i] = aItems.snapshotItem(i);
+                }
+                return aResult;
+            }
+
+            // prototying the Element
+            Element.prototype.selectNodes = function(cXPathString) {
+                if (this.ownerDocument.selectNodes) {
+                    return this.ownerDocument.selectNodes(cXPathString, this);
+                }
+                else { throw "For XML Elements Only"; }
+            }
+            XMLDocument.prototype.selectSingleNode = function(cXPathString, xNode) {
+                if (!xNode) { xNode = this; }
+
+                var xItems = this.selectNodes(cXPathString, xNode);
+                if (xItems.length > 0) {
+                    return xItems[0];
+                }
+                else {
+                    return null;
+                }
+            }
+
+            Element.prototype.selectSingleNode = function(sXPath) {
+                var oEvaluator = new XPathEvaluator();
+                // FIRST_ORDERED_NODE_TYPE returns the first match to the xpath.
+
+                var oResult = oEvaluator.evaluate(sXPath, this, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+            }
+        }
+        function uiXmlToString(documentElement) {
+            if (!documentElement)
+                return '';
+            if (documentElement.xml)
+                return documentElement.xml;
+            else
+                return new XMLSerializer().serializeToString(documentElement);
+            return '';
+        }
+        function ChangeText(xpath, value) {
+            var xml = uiLoadXml(document.getElementById('div').value); uiSetAttribute(xml, xpath, value); document.getElementById('div').value = uiXmlToString(xml);
+            SetOptions();
+        }
+        function IsChecked(id) {
+            return document.getElementById(id).checked ? 'true' : 'false';
+        }
+        function SetOptions() {
+            var xml = uiLoadXml(document.getElementById('div').value);
+            uiSetAttribute(xml, '*/@legend', (IsChecked('chk_legend')));
+            uiSetAttribute(xml, '*/@animate', (IsChecked('chk_animate')));
+            uiSetAttribute(xml, '*/@showY', (IsChecked('chk_showY')));
+            uiSetAttribute(xml, '*/@labelColor', (IsChecked('chk_labelColor') == 'true' ? '#ffffff' : ''));
+            uiSetAttribute(xml, '*/@logo', (IsChecked('chkLogo') == 'true' ? 'logo.png' : ''));
+            uiSetAttribute(xml, '*/@logoX', (IsChecked('chkLogo') == 'true' ? '400' : ''));
+            uiSetAttribute(xml, '*/@logoY', (IsChecked('chkLogo') == 'true' ? '10' : ''));
+            uiSetAttribute(xml, '*/@currency', (document.getElementById('select_currency').value))  ;
+            uiSetAttribute(xml, '*/@maxValue', (document.getElementById('select_maxValue').value));
+            document.getElementById('content').style.backgroundColor = (IsChecked('chk_labelColor') == 'true' ? '#000000' : '#ffffff');
+
+            var callJs = (IsChecked('callJs') == 'true');
+            var nodes = xml.selectNodes('//*[not(*)]');
+            for (var n = 0; n < nodes.length; n++)
+                uiSetAttribute(nodes[n], 'onclick', (callJs ? 'alert(\'hello ' + nodes[n].getAttribute('label') + '\')' : null));
+                
+             nodes = xml.selectNodes('//*[not(*) and position()=1]');
+            for ( n = 0; n < nodes.length; n++)
+                uiSetAttribute(nodes[n], 'color', (IsChecked('chkColor') == 'true' ? '#ff00ff' : ''));
+
+            document.getElementById('div').value = uiXmlToString(xml);
+            FromText();
+        }
+        uiFireFoxInit();
+    </script>
+
+    <style>
+        html
+        {
+            padding: 0px;
+            margin: 0px;
+        }
+    </style>
+</head>
+<body style="height: 100%; background-color: LightBlue; padding: 0px; margin: 0px;
+    font-family: Arial;" onload="Init()">
+    <center>
+        <div style="background-color: #ffffff; width: 1000px; text-align: left; padding: 15px;"
+            id="content">
+            <img src="logo.png"  />
+           <h3>High value charts</h3>  
+            <div style="background-color: #f9f9f9; padding: 15px; line-height: 20px; font-size: 14px;">
+                Fast & Light chart control for your website.<br />
+                Support multi-languages, including RTL (right to left)<br />
+                Unlimited full featured trial, low price, flexible, simple to use and to interact
+                with
+            </div>
+            <br />
+            <a href="charx.zip" name="d">Download Now, It's free!</a>
+            <br />
+            <br />
+            <div id="aaa">
+                <div id="cpanel">
+                </div>
+                <div style="background-color: #fafafa; padding: 15px; font-size: 13px;">
+                    <h3>
+                        Play with me (modify the xml data):</h3>
+                    <a onclick="RandomizeData(1);" href="#d">Random 1 Level</a> &nbsp; | &nbsp; <a onclick="RandomizeData(2);"
+                        href="#d">Random 2 Levels</a> &nbsp; | &nbsp; <a onclick="RandomizeData(2,1);" href="#d">
+                            Random Large Data</a>
+                             &nbsp; | &nbsp;
+                    <select type="checkbox" id="selectLang" onchange="RandomizeData();">
+                        <option value="en">english</option>
+                        <option value="ja">japanese</option>
+                        <option value="ar">arabic</option>
+                        <option value="he">hebrew</option>
+                    </select>
+                    Language  &nbsp; | &nbsp;
+                    <input type="checkbox" onclick="window.clearInterval(window.interval); if (this.checked) {RandomizeData();window.interval=window.setInterval(RandomizeData,2500);}"
+                        href="#">
+                    Random Slide Show
+                    <br />
+                    <br />
+                    Display as: <a onclick="ChangeText('*/@type','meter');" href="#d">meter</a> &nbsp;
+                    | &nbsp; <a onclick="ChangeText('*/@type','pie');" href="#d">pie</a> &nbsp; | &nbsp;
+                    <a onclick="ChangeText('*/@type','stack');" href="#d">stack</a> &nbsp; | &nbsp;
+                    <a onclick="ChangeText('*/@type','bar');" href="#d">bar</a> &nbsp; | &nbsp; <a onclick="ChangeText('*/@type','line');"
+                        href="#d">line</a>
+                    <br />
+                    <br />
+                    Options:
+                    <input type="checkbox" id="chk_legend" onclick="SetOptions();" checked />
+                    Legend &nbsp; | &nbsp;
+                    <input type="checkbox" id="chk_animate" onclick="SetOptions();" checked />
+                    Animation &nbsp; | &nbsp;
+                    <input type="checkbox" id="chk_showY" onclick="SetOptions();" checked />
+                    Y values &nbsp; | &nbsp;
+                    <input type="checkbox" id="chk_labelColor" onclick="SetOptions();" />
+                    Negative &nbsp; | &nbsp;
+                    <input type="checkbox" id="callJs" onclick="SetOptions();" />
+                    JavaScript &nbsp; | &nbsp;
+                    <select type="checkbox" id="select_currency" onchange="SetOptions();">
+                        <option value=""></option>
+                        <option value="$">$</option>
+                        <option value="%">%</option>
+                        <option value="ج.م.">ج.م.</option>
+                        <option value="£">£</option>
+                        <option value="€">€</option>
+                        <option value="¥">¥</option>
+                        <option value="₪">₪</option>
+                        <option value="د.ك">د.ك</option>
+                    </select>
+                    currency &nbsp; | &nbsp;
+                    <select type="checkbox" id="select_maxValue" onchange="SetOptions();">
+                        <option value=""></option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                        <option value="500">500</option>
+                    </select>
+                    Max Value &nbsp; | &nbsp;
+                    <input type="checkbox" id="chkLogo" onclick="SetOptions();" />
+                    Logo &nbsp; | &nbsp;
+                    <input type="checkbox" id="chkColor" onclick="SetOptions();" />
+                    Color
+                    
+                    <br />
+                    <br />
+                    <br />
+                    Xml Data:
+                    <br />
+                    <textarea id="div" style="width: 900px" rows="8"></textarea>
+                    <br />
+                    <input type="button" onclick="FromText()" value="FromText" />
+                </div>
+            </div>
+            
+            <br />
+            <br />
+            <br />
+            <br />
+                <div style="background-color: #f9f9f9; padding: 15px; font-size: 14px;line-height: 22px;">
+                <img src="SPECIAL OFFERS.png" align="left"/>
+            <br />
+            Buy a license key for your website, for only 60$ <br />
+            and get one more license key for FREE!<br />
+            please contact us,<br />
+            <a href="mailto:shaigalili@gmail.com">shaigalili@gmail.com</a>
+            <br />
+             Your website can be upgraded today!
+            <br />
+            <br />
+            </div>
+            
+            <br />
+            <br />
+            <br />
+            <br />
+            <br />
+            <br />
+        </div>
+    </center>
+</body>
+</html>
